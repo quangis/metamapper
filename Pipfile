@@ -1,0 +1,24 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+ipython = "*"
+
+[packages]
+selenium = "*"
+requests = "*"
+flask = "*"
+flask-cors = "*"
+psycopg2-binary = "*"
+python-magic = "*"
+gdal = "*"
+tqdm = "*"
+tabulator = "*"
+python-dateutil = "*"
+tdda = "*"
+sklearn = "*"
+
+[requires]
+python_version = "3.8"
