@@ -19,6 +19,7 @@ tabulator = "*"
 python-dateutil = "*"
 tdda = "*"
 sklearn = "*"
+ipython = "*"
 
 [requires]
 python_version = "3.8"
