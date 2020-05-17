@@ -53,7 +53,15 @@ def sample():
 @app.route('/ingest', methods=['GET'])
 def trigger_ingest():
     url = request.args.get("url")
-    ingest(url)
+    table_name = ingest(url)
+
+    with psycopg2.connect("host=localhost") as conn:
+        with conn.cursor() as cur:
+            cur.execute("select column_name from information_schema.columns where table_name = %s and column_name != 'geom'", [ table_name ])
+            columns = [row[0] for row in cur.fetchall()]
+
+    for column_name in columns:
+        annotate.suggest_concept(table_name, column_name)
 
     return jsonify({"status": "ok"})
 
@@ -61,9 +69,6 @@ def trigger_ingest():
 def suggest():
     source = request.args.get("source")
     field = request.args.get("field")
-
-    # Table names are hashed uris
-    #source = hashlib.md5(url.encode("utf-8")).hexdigest()
 
     suggestion = annotate.suggest_concept(source, field)
     return jsonify({"concept": suggestion})
@@ -82,12 +87,26 @@ def post_concept(data):
     field = data.get("field")
     concept = data.get("concept")
 
-    if not source or not field or not concept:
-        raise Exception("Missing required params")
+    if not source or not field:
+        measurement = data.get("measurement")
+        propertytype = data.get("property")
+        dataset = data.get("dataset")
 
-    #source = hashlib.md5(url.encode("utf-8")).hexdigest()
+        with psycopg2.connect("host=localhost") as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    update concepts set
+                        measurement = %s,
+                        property = %s,
+                        dataset = %s
+                    where uri = %s
+                """, [ measurement, propertytype, dataset, concept ])
 
-    annotate.generate_concept(source, field, concept, verified=True)
+    else:
+        #source = hashlib.md5(url.encode("utf-8")).hexdigest()
+
+        annotate.generate_concept(source, field, concept, verified=True)
+
     return jsonify({"status": "ok"})
 
 
@@ -96,7 +115,7 @@ def get_concepts():
 
     with psycopg2.connect("host=localhost") as conn:
         with conn.cursor() as cur:
-            cur.execute("select uri, name from concepts")
+            cur.execute("select uri, name from concepts where narrower is not null")
             res = cur.fetchall()
 
             for row in res:

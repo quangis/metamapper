@@ -42,7 +42,10 @@ class Annotate:
                     name text,
                     data_type text,
                     verified bool default false,
-                    narrower text references concepts(uri) on update cascade on delete cascade
+                    narrower text references concepts(uri) on update cascade on delete cascade,
+                    measurement text,
+                    property text,
+                    dataset text
                 );
 
                 create table if not exists concepts__data (
@@ -166,8 +169,13 @@ class Annotate:
         return uri
 
 
-    def generate_concept(self, table_name, column_name, concept_name, narrower, verified=False):
+    def generate_concept(self, table_name, column_name, concept_name, narrower=None, verified=False):
         uri = BASE_URI % concept_name
+
+        if not narrower:
+            with self.conn.cursor() as cur:
+                cur.execute("select uri from concepts__data where table_name = %s and column_name = %s limit 1", [ table_name, column_name ])
+                narrower = cur.fetchone()[0]
 
         with self.conn.cursor() as cur:
             cur.execute("select data_type::text from information_schema.columns where table_name = %s and column_name = %s", [ table_name, column_name ])
@@ -196,6 +204,9 @@ class Annotate:
 
     def test_text_rules(self, data, min_score=0.5):
         if not self.text_clf:
+            return []
+
+        if len(data) == 0:
             return []
 
         best_candidates = []
@@ -239,7 +250,14 @@ class Annotate:
         """
 
         with self.conn.cursor() as cur:
-            cur.execute("select uri from concepts__data where table_name = %s and column_name = %s limit 1", [ table_name, column_name ])
+            cur.execute("""
+                select coalesce(b.uri, a.uri)
+                from concepts__data a
+                left join concepts b on (a.uri = b.narrower)
+                where a.table_name = %s
+                and a.column_name = %s
+                limit 1
+            """, [ table_name, column_name ])
             res = cur.fetchone()
 
             # This table / column combo already has a concept
@@ -258,9 +276,8 @@ class Annotate:
             ))
             data = [row[0] for row in cur.fetchall()]
 
-
         # Get a list of potential concepts based on the data
-        if data_type in ("integer", "double precision"):
+        if data_type in ("bigint", "integer", "double precision"):
             candidates = self.test_numeric_rules(data)
         elif data_type in ("date", "timestamp"):
             candidates = self.test_date_rules(data)

@@ -135,6 +135,9 @@ class WebDriver:
                 href = elem.get_attribute("href")
                 results[elem_type] = (';'.join(clicks + [elem_path]), elem.text if not href else href)
 
+        self.driver.close()
+        self.driver.switch_to_window(self.driver.window_handles[0])
+
         return results
 
 
