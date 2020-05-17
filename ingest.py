@@ -176,12 +176,18 @@ def ingest(url = "https://cmshare.eea.europa.eu/s/n5L8Lrs9aYD775S/download"):
             fout.write(data)
 
     magic_file_type = magic.from_file(source_file)
+
     if "Zip" in magic_file_type or "zip" in magic_file_type:
         dname = os.path.join(tmpdir, hashlib.md5(source_file.encode("utf-8")).hexdigest())
         path, file_type = uncompress(source_file, dname=dname)
 
     elif "CSV" in magic_file_type or "text" in magic_file_type:
         path, file_type = (source_file, "CSV")
+
+        # Magic is not always right..
+        with open(source_file, 'r') as fin:
+            if fin.read(1) == '{':
+                path, file_type = (source_file, "OGR")
 
     elif "JSON" in magic_file_type:
         path, file_type = (source_file, "OGR")
@@ -194,7 +200,6 @@ def ingest(url = "https://cmshare.eea.europa.eu/s/n5L8Lrs9aYD775S/download"):
 
         raise ValueError(f"Unknown file type: \"{magic_file_type}\"")
 
-
     if file_type == "CSV":
         import_csv(path, source)
     else: # handles most types
@@ -204,5 +209,5 @@ def ingest(url = "https://cmshare.eea.europa.eu/s/n5L8Lrs9aYD775S/download"):
 
 
 if __name__ == "__main__":
-    table = ingest(url = "https://opendata.cbs.nl/CsvDownload/csv/71227ned/UntypedDataSet?dl=1A066")
+    table = ingest(url = "https://maps.amsterdam.nl/open_geodata/geojson.php?KAARTLAAG=STADSLANDBOUW_VLAK&THEMA=stadslandbouw")
 
